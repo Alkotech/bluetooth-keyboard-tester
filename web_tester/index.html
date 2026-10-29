@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bluetooth Keyboard Tester</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #141b2d;
+      --card-border: #232d45;
+      --text: #f1f5f9;
+      --muted: #8492a6;
+      --key-default: #1b2438;
+      --key-border: #2d3b58;
+      --key-active: #f59e0b;
+      --key-active-text: #000000;
+      --key-tested: #10b981;
+      --accent: #06b6d4;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      overflow-x: hidden;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .top-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:active, .btn.active {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+    }
+
+    .btn-danger:active {
+      background: var(--danger);
+      color: #fff;
+      border-color: var(--danger);
+    }
+
+    /* Telemetry HUD */
+    .hud {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+
+    .key-hero {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .key-hero-name {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--accent);
+      font-family: monospace;
+    }
+
+    .key-hero-action {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .stats {
+      text-align: right;
+    }
+
+    .stats-progress {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--key-tested);
+    }
+
+    .stats-sub {
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .grid-info {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .info-item {
+      font-size: 0.7rem;
+    }
+
+    .info-label {
+      color: var(--muted);
+      margin-bottom: 2px;
+      text-transform: uppercase;
+      font-size: 0.65rem;
+    }
+
+    .info-value {
+      font-weight: 600;
+      color: #fff;
+      font-family: monospace;
+      word-break: break-all;
+    }
+
+    .chatter-alert {
+      display: none;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--danger);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: #fca5a5;
+      font-weight: 600;
+    }
+
+    /* Keyboard Container */
+    .keyboard-wrapper {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 10px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 12px;
+    }
+
+    .keyboard {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 760px;
+    }
+
+    .kb-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .kb-key {
+      height: 38px;
+      background: var(--key-default);
+      border: 1px solid var(--key-border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      transition: background 0.05s ease, border-color 0.05s ease;
+      position: relative;
+    }
+
+    .kb-key.w-1 { flex: 1; }
+    .kb-key.w-1-25 { flex: 1.25; }
+    .kb-key.w-1-5 { flex: 1.5; }
+    .kb-key.w-1-75 { flex: 1.75; }
+    .kb-key.w-2 { flex: 2; }
+    .kb-key.w-2-25 { flex: 2.25; }
+    .kb-key.w-6 { flex: 6.2; }
+
+    .kb-key.tested {
+      background: var(--key-tested);
+      border-color: var(--key-tested);
+      color: #ffffff;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+    }
+
+    .kb-key.active {
+      background: var(--key-active) !important;
+      border-color: var(--key-active) !important;
+      color: var(--key-active-text) !important;
+      transform: translateY(1px);
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .legend-items {
+      display: flex;
+      gap: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
+    /* History Log */
+    .history-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 150px;
+    }
+
+    .history-header {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-family: monospace;
+      font-size: 0.7rem;
+    }
+
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .history-row.chatter {
+      color: var(--danger);
+      font-weight: bold;
+    }
+
+    .row-time { color: var(--muted); }
+    .row-key { color: #fff; font-weight: bold; }
+    .row-action.down { color: var(--accent); }
+    .row-action.up { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>Bluetooth Keyboard Tester</h1>
+      <div class="subtitle" id="deviceSubtitle">Ожидание нажатия клавиш...</div>
+    </div>
+    <div class="top-controls">
+      <button class="btn active" id="btnSound">🔊 Звук</button>
+      <button class="btn active" id="btnVibrate">📳 Вибро</button>
+      <button class="btn" id="btnReset">🔄 Сброс</button>
+    </div>
+  </header>
+
+  <!-- Telemetry HUD -->
+  <div class="hud">
+    <div class="hud-top">
+      <div class="key-hero">
+        <span class="key-hero-name" id="heroKey">—</span>
+        <span class="key-hero-action" id="heroAction">WAITING</span>
+      </div>
+      <div class="stats">
+        <div class="stats-progress" id="testedCountText">0 / 84 (0%)</div>
+        <div class="stats-sub" id="heldKeysText">Удерживается: 0</div>
+      </div>
+    </div>
+
+    <div class="grid-info">
+      <div class="info-item">
+        <div class="info-label">Code / Key</div>
+        <div class="info-value" id="valCode">—</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">KeyCode (int)</div>
+        <div class="info-value" id="valKeyCode">—</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Модификаторы</div>
+        <div class="info-value" id="valMods">—</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Интервал</div>
+        <div class="info-value" id="valInterval">—</div>
+      </div>
+    </div>
+
+    <div class="chatter-alert" id="chatterAlert">
+      ⚠️ Внимание: дребезг переключателя (<span id="chatterMs">0</span> мс)! Возможен дефект клавиши.
+    </div>
+  </div>
+
+  <!-- Interactive Keyboard Layout -->
+  <div class="keyboard-wrapper">
+    <div class="keyboard" id="keyboardContainer">
+      <!-- Row 0: Function Row -->
+      <div class="kb-row">
+        <div class="kb-key w-1" data-code="Escape">ESC</div>
+        <div class="kb-key w-1" data-code="F1">F1</div>
+        <div class="kb-key w-1" data-code="F2">F2</div>
+        <div class="kb-key w-1" data-code="F3">F3</div>
+        <div class="kb-key w-1" data-code="F4">F4</div>
+        <div class="kb-key w-1" data-code="F5">F5</div>
+        <div class="kb-key w-1" data-code="F6">F6</div>
+        <div class="kb-key w-1" data-code="F7">F7</div>
+        <div class="kb-key w-1" data-code="F8">F8</div>
+        <div class="kb-key w-1" data-code="F9">F9</div>
+        <div class="kb-key w-1" data-code="F10">F10</div>
+        <div class="kb-key w-1" data-code="F11">F11</div>
+        <div class="kb-key w-1" data-code="F12">F12</div>
+        <div class="kb-key w-1" data-code="PrintScreen">PRT</div>
+        <div class="kb-key w-1" data-code="ScrollLock">SCRL</div>
+        <div class="kb-key w-1" data-code="Pause">PAUS</div>
+      </div>
+
+      <!-- Row 1: Numbers -->
+      <div class="kb-row">
+        <div class="kb-key w-1" data-code="Backquote">` ~</div>
+        <div class="kb-key w-1" data-code="Digit1">1 !</div>
+        <div class="kb-key w-1" data-code="Digit2">2 @</div>
+        <div class="kb-key w-1" data-code="Digit3">3 #</div>
+        <div class="kb-key w-1" data-code="Digit4">4 $</div>
+        <div class="kb-key w-1" data-code="Digit5">5 %</div>
+        <div class="kb-key w-1" data-code="Digit6">6 ^</div>
+        <div class="kb-key w-1" data-code="Digit7">7 &</div>
+        <div class="kb-key w-1" data-code="Digit8">8 *</div>
+        <div class="kb-key w-1" data-code="Digit9">9 (</div>
+        <div class="kb-key w-1" data-code="Digit0">0 )</div>
+        <div class="kb-key w-1" data-code="Minus">- _</div>
+        <div class="kb-key w-1" data-code="Equal">= +</div>
+        <div class="kb-key w-2" data-code="Backspace">BACKSPACE</div>
+        <div class="kb-key w-1" data-code="Insert">INS</div>
+        <div class="kb-key w-1" data-code="Home">HOME</div>
+        <div class="kb-key w-1" data-code="PageUp">PGUP</div>
+      </div>
+
+      <!-- Row 2: QWERTY -->
+      <div class="kb-row">
+        <div class="kb-key w-1-5" data-code="Tab">TAB</div>
+        <div class="kb-key w-1" data-code="KeyQ">Q</div>
+        <div class="kb-key w-1" data-code="KeyW">W</div>
+        <div class="kb-key w-1" data-code="KeyE">E</div>
+        <div class="kb-key w-1" data-code="KeyR">R</div>
+        <div class="kb-key w-1" data-code="KeyT">T</div>
+        <div class="kb-key w-1" data-code="KeyY">Y</div>
+        <div class="kb-key w-1" data-code="KeyU">U</div>
+        <div class="kb-key w-1" data-code="KeyI">I</div>
+        <div class="kb-key w-1" data-code="KeyO">O</div>
+        <div class="kb-key w-1" data-code="KeyP">P</div>
+        <div class="kb-key w-1" data-code="BracketLeft">[ {</div>
+        <div class="kb-key w-1" data-code="BracketRight">] }</div>
+        <div class="kb-key w-1-5" data-code="Backslash">\ |</div>
+        <div class="kb-key w-1" data-code="Delete">DEL</div>
+        <div class="kb-key w-1" data-code="End">END</div>
+        <div class="kb-key w-1" data-code="PageDown">PGDN</div>
+      </div>
+
+      <!-- Row 3: ASDF -->
+      <div class="kb-row">
+        <div class="kb-key w-1-75" data-code="CapsLock">CAPS</div>
+        <div class="kb-key w-1" data-code="KeyA">A</div>
+        <div class="kb-key w-1" data-code="KeyS">S</div>
+        <div class="kb-key w-1" data-code="KeyD">D</div>
+        <div class="kb-key w-1" data-code="KeyF">F</div>
+        <div class="kb-key w-1" data-code="KeyG">G</div>
+        <div class="kb-key w-1" data-code="KeyH">H</div>
+        <div class="kb-key w-1" data-code="KeyJ">J</div>
+        <div class="kb-key w-1" data-code="KeyK">K</div>
+        <div class="kb-key w-1" data-code="KeyL">L</div>
+        <div class="kb-key w-1" data-code="Semicolon">; :</div>
+        <div class="kb-key w-1" data-code="Quote">' "</div>
+        <div class="kb-key w-2-25" data-code="Enter">ENTER</div>
+      </div>
+
+      <!-- Row 4: ZXCV -->
+      <div class="kb-row">
+        <div class="kb-key w-2-25" data-code="ShiftLeft">L SHIFT</div>
+        <div class="kb-key w-1" data-code="KeyZ">Z</div>
+        <div class="kb-key w-1" data-code="KeyX">X</div>
+        <div class="kb-key w-1" data-code="KeyC">C</div>
+        <div class="kb-key w-1" data-code="KeyV">V</div>
+        <div class="kb-key w-1" data-code="KeyB">B</div>
+        <div class="kb-key w-1" data-code="KeyN">N</div>
+        <div class="kb-key w-1" data-code="KeyM">M</div>
+        <div class="kb-key w-1" data-code="Comma">, &lt;</div>
+        <div class="kb-key w-1" data-code="Period">. &gt;</div>
+        <div class="kb-key w-1" data-code="Slash">/ ?</div>
+        <div class="kb-key w-2-25" data-code="ShiftRight">R SHIFT</div>
+        <div class="kb-key w-1" data-code="ArrowUp">▲</div>
+      </div>
+
+      <!-- Row 5: Space & Modifiers -->
+      <div class="kb-row">
+        <div class="kb-key w-1-25" data-code="ControlLeft">L CTRL</div>
+        <div class="kb-key w-1-25" data-code="MetaLeft">WIN/CMD</div>
+        <div class="kb-key w-1-25" data-code="AltLeft">L ALT</div>
+        <div class="kb-key w-6" data-code="Space">SPACE</div>
+        <div class="kb-key w-1-25" data-code="AltRight">R ALT</div>
+        <div class="kb-key w-1-25" data-code="MetaRight">WIN</div>
+        <div class="kb-key w-1-25" data-code="ContextMenu">MENU</div>
+        <div class="kb-key w-1-25" data-code="ControlRight">R CTRL</div>
+        <div class="kb-key w-1" data-code="ArrowLeft">◄</div>
+        <div class="kb-key w-1" data-code="ArrowDown">▼</div>
+        <div class="kb-key w-1" data-code="ArrowRight">►</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-items">
+      <div class="legend-item">
+        <div class="legend-color" style="background: var(--key-active);"></div>
+        <span>Нажата</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: var(--key-tested);"></div>
+        <span>Проверена OK</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: var(--key-default); border: 1px solid var(--key-border);"></div>
+        <span>Не нажата</span>
+      </div>
+    </div>
+    <div>Перехват системных клавиш включён</div>
+  </div>
+
+  <!-- Event History -->
+  <div class="history-card">
+    <div class="history-header">
+      <span>ИСТОРИЯ СОБЫТИЙ</span>
+      <span id="historyCount">0 записей</span>
+    </div>
+    <div class="history-list" id="historyList">
+      <div style="color: var(--muted); text-align: center; padding: 16px;">
+        Подключите Bluetooth-клавиатуру и нажимайте клавиши...
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Audio synthesizer for click sound
+    let audioCtx = null;
+    function playClickSound() {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(650, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.035);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.035);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.04);
+      } catch (e) {}
+    }
+
+    function triggerVibration() {
+      if (!vibrateEnabled) return;
+      if (navigator.vibrate) {
+        navigator.vibrate(15);
+      }
+    }
+
+    // State
+    const activeKeys = new Set();
+    const testedKeys = new Set();
+    const releaseTimes = new Map();
+    let soundEnabled = true;
+    let vibrateEnabled = true;
+    let eventCount = 0;
+
+    const totalKeys = document.querySelectorAll('.kb-key').length;
+
+    // DOM Elements
+    const heroKey = document.getElementById('heroKey');
+    const heroAction = document.getElementById('heroAction');
+    const testedCountText = document.getElementById('testedCountText');
+    const heldKeysText = document.getElementById('heldKeysText');
+    const valCode = document.getElementById('valCode');
+    const valKeyCode = document.getElementById('valKeyCode');
+    const valMods = document.getElementById('valMods');
+    const valInterval = document.getElementById('valInterval');
+    const chatterAlert = document.getElementById('chatterAlert');
+    const chatterMs = document.getElementById('chatterMs');
+    const historyList = document.getElementById('historyList');
+    const historyCount = document.getElementById('historyCount');
+    const deviceSubtitle = document.getElementById('deviceSubtitle');
+
+    const btnSound = document.getElementById('btnSound');
+    const btnVibrate = document.getElementById('btnVibrate');
+    const btnReset = document.getElementById('btnReset');
+
+    btnSound.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      btnSound.classList.toggle('active', soundEnabled);
+    });
+
+    btnVibrate.addEventListener('click', () => {
+      vibrateEnabled = !vibrateEnabled;
+      btnVibrate.classList.toggle('active', vibrateEnabled);
+    });
+
+    btnReset.addEventListener('click', () => {
+      activeKeys.clear();
+      testedKeys.clear();
+      releaseTimes.clear();
+      document.querySelectorAll('.kb-key').forEach(el => {
+        el.classList.remove('active', 'tested');
+      });
+      heroKey.textContent = '—';
+      heroAction.textContent = 'WAITING';
+      valCode.textContent = '—';
+      valKeyCode.textContent = '—';
+      valMods.textContent = '—';
+      valInterval.textContent = '—';
+      chatterAlert.style.display = 'none';
+      historyList.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 16px;">Тест сброшен. Нажмите клавишу...</div>';
+      eventCount = 0;
+      updateStats();
+    });
+
+    function updateStats() {
+      const pct = totalKeys > 0 ? Math.round((testedKeys.size / totalKeys) * 100) : 0;
+      testedCountText.textContent = `${testedKeys.size} / ${totalKeys} (${pct}%)`;
+      heldKeysText.textContent = `Удерживается: ${activeKeys.size}`;
+    }
+
+    function addHistoryRow(code, key, action, isChatter, interval) {
+      if (eventCount === 0) historyList.innerHTML = '';
+      eventCount++;
+      historyCount.textContent = `${eventCount} записей`;
+
+      const row = document.createElement('div');
+      row.className = `history-row ${isChatter ? 'chatter' : ''}`;
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+
+      row.innerHTML = `
+        <div>
+          <span class="row-time">${timeStr}</span>
+          <span class="row-key">${code} (${key})</span>
+          ${isChatter ? `<span style="color:var(--danger)">[ДРЕБЕЗГ ${interval}мс]</span>` : ''}
+        </div>
+        <div class="row-action ${action.toLowerCase()}">${action}</div>
+      `;
+      historyList.prepend(row);
+      if (historyList.children.length > 60) {
+        historyList.removeChild(historyList.lastChild);
+      }
+    }
+
+    // Key Event Handlers
+    window.addEventListener('keydown', (e) => {
+      // Prevent browser default actions (scrolling, Tab focus loss, Back, F-keys)
+      e.preventDefault();
+
+      const code = e.code;
+      const key = e.key;
+      const now = performance.now();
+
+      // Detect chatter (< 45ms bounce from last release)
+      let isChatter = false;
+      let bounceTime = 0;
+      if (releaseTimes.has(code)) {
+        const diff = Math.round(now - releaseTimes.get(code));
+        if (diff < 45 && !e.repeat) {
+          isChatter = true;
+          bounceTime = diff;
+        }
+      }
+
+      if (!e.repeat) {
+        activeKeys.add(code);
+        testedKeys.add(code);
+        playClickSound();
+        triggerVibration();
+      }
+
+      // Update UI element on keyboard layout
+      const keyEl = document.querySelector(`.kb-key[data-code="${code}"]`);
+      if (keyEl) {
+        keyEl.classList.add('active');
+        keyEl.classList.add('tested');
+      }
+
+      // Telemetry
+      heroKey.textContent = code.replace(/^(Key|Digit)/, '');
+      heroAction.textContent = e.repeat ? 'REPEAT' : 'DOWN';
+      valCode.textContent = `${code} ('${key}')`;
+      valKeyCode.textContent = e.keyCode || e.which;
+
+      const mods = [];
+      if (e.ctrlKey) mods.push('CTRL');
+      if (e.altKey) mods.push('ALT');
+      if (e.shiftKey) mods.push('SHIFT');
+      if (e.metaKey) mods.push('META/WIN');
+      valMods.textContent = mods.length > 0 ? mods.join(' + ') : '—';
+      valInterval.textContent = isChatter ? `${bounceTime} ms (bounce!)` : 'OK';
+
+      if (isChatter) {
+        chatterAlert.style.display = 'block';
+        chatterMs.textContent = bounceTime;
+      } else {
+        chatterAlert.style.display = 'none';
+      }
+
+      deviceSubtitle.textContent = 'Bluetooth-клавиатура активна';
+
+      updateStats();
+      addHistoryRow(code, key, e.repeat ? 'REPEAT' : 'DOWN', isChatter, bounceTime);
+    }, { capture: true, passive: false });
+
+    window.addEventListener('keyup', (e) => {
+      e.preventDefault();
+      const code = e.code;
+      const now = performance.now();
+
+      activeKeys.delete(code);
+      releaseTimes.set(code, now);
+
+      const keyEl = document.querySelector(`.kb-key[data-code="${code}"]`);
+      if (keyEl) {
+        keyEl.classList.remove('active');
+      }
+
+      heroAction.textContent = 'UP';
+      updateStats();
+      addHistoryRow(code, e.key, 'UP', false, 0);
+    }, { capture: true, passive: false });
+
+    // Focus window automatically
+    window.focus();
+    window.addEventListener('click', () => window.focus());
+  </script>
+</body>
+</html>
